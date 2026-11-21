@@ -6,6 +6,7 @@ from .schemas import *
 from .security import current,allow
 from .common import *
 from . import entrance_service as entrance,proposal_service as proposal,publication_service as publication,directory_service as directory
+from .matching import segment_count
 router=APIRouter()
 def change(u,action,fn,supervisor=False):
  allow(u,*(['supervisor'] if supervisor else ['operator','supervisor']))
@@ -27,7 +28,8 @@ def aliases(d:AliasIn,u=Depends(current)):return change(u,'登记别名',lambda 
 def evidence(d:EvidenceIn,u=Depends(current)):return change(u,'登记证据',lambda s:entrance.evidence(s,d.model_dump()))
 @router.post('/matches')
 def matching(u=Depends(current)):
- def create(s):lock(s);x=MatchRun(state='queued');s.add(x);s.flush();return x
+ def create(s):
+  lock(s);x=MatchRun(state='queued',progress=0,segments=segment_count(len(rows(s,Alias))));s.add(x);s.flush();return x
  d=change(u,'匹配别名',create)
  try:redis.from_url(os.environ['REDIS_URL']).rpush('address:matching',d['id'])
  except Exception:
